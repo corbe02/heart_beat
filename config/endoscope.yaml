@@ -1,0 +1,19 @@
+camera:
+  fx: 745.0165
+  fy: 745.6793
+  cx: 667.0261
+  cy: 366.4256
+
+  distortion_coefficients:
+    k1: 0.0191
+    k2: -0.2377
+    p1: 0.0
+    p2: 0.0
+
+  FOV:
+    horizontal: 81.33  # degrees
+    vertical: 51.54    # degrees
+
+  resolution:
+    width: 1280
+    height: 720
