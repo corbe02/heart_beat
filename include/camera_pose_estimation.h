@@ -24,7 +24,8 @@ private:
     void computeOpticalFlow(const cv::Mat &prev, const cv::Mat &current);
     void recoverPose(const std::vector<cv::Point2f> &good_old, const std::vector<cv::Point2f> &good_new, const std::vector<bool> &dynamic);
     cv::Mat extractFeatures(const cv::Mat &img, std::vector<cv::Point2f> &keypoints2f);
-    void drawStuff(const cv::Mat &current, std::vector<cv::Point2f> &good_new, const cv::Scalar& color);
+    void drawDelaunay(const cv::Mat &current, std::vector<cv::Point2f> &good_new, const cv::Scalar& color);
+    void drawVoronoi(const cv::Mat &current, std::vector<cv::Point2f> &good_new, const cv::Scalar& color);
 
     ros::Subscriber image_sub_;
     ros::NodeHandle private_nh_;
@@ -34,6 +35,7 @@ private:
     cv::Mat current_img_;
     std::vector<cv::Point2f> points_prev_;
     bool first_time_;
+    //std::vector<bool> dynamic_points_;  // Quando è posto a 1, la feature è dinamica e lo resterà sempre
 };
 
 #endif // OPTICAL_FLOW_POSE_H
