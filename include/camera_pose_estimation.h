@@ -35,7 +35,7 @@ private:
     cv::Mat current_img_;
     std::vector<cv::Point2f> points_prev_;
     bool first_time_;
-    //std::vector<bool> dynamic_points_;  // Quando è posto a 1, la feature è dinamica e lo resterà sempre
+    std::vector<bool> dynamic_points_prev;  // Quando è posto a 1, la feature è dinamica e lo resterà sempre
 };
 
 #endif // OPTICAL_FLOW_POSE_H

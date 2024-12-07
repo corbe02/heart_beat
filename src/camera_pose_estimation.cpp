@@ -39,7 +39,7 @@ void OpticalFlowPose::imageCallback(const sensor_msgs::ImageConstPtr &msg)
                 computeOpticalFlow(prev_img_, current_img_);
             }
 
-            prev_img_ = current_copy.clone();
+            prev_img_ = current_copy.clone(); // altrimenti prev_img_ è quella con voronoi e delaunay se passo current_img_
         //}
     }
     catch (cv_bridge::Exception &e)
@@ -94,6 +94,7 @@ void OpticalFlowPose::computeOpticalFlow(const cv::Mat &prev, const cv::Mat &cur
     {
         //cv::goodFeaturesToTrack(old_gray, points_prev_, 10000, 0.01, 5,mask); //input image, output array, max_points, quality level, min distance, mask
         cv::goodFeaturesToTrack(old_gray, points_prev_, 1000, 0.000001, 100);
+        dynamic_points_prev = std::vector<bool>(points_prev_.size(), false);
         //cv::Mat descriptor = extractFeatures(old_gray, points_prev_);
         first_time_ = false;
     }
@@ -109,6 +110,7 @@ void OpticalFlowPose::computeOpticalFlow(const cv::Mat &prev, const cv::Mat &cur
     std::vector<cv::Point2f> good_old; //conterrà i punti del frame precedente che sono stati correttamente mappati in quello corrente 
     std::vector<cv::Point2f> good_new; //punti mappati nel frame corrente 
 
+
     for (size_t i = 0; i < status.size(); ++i) {
         if (status[i]) 
         {  // Se il punto è stato tracciato correttamente
@@ -117,16 +119,28 @@ void OpticalFlowPose::computeOpticalFlow(const cv::Mat &prev, const cv::Mat &cur
         }
     }
 
-    std::vector<bool> dynamic(good_new.size(), false); // 1 se dinamico, 0 se statico
+    std::vector<bool> dynamic_current(good_new.size(), false); // 1 se dinamico, 0 se statico
+    int counter = 0;
+    for (size_t i = 0; i < status.size(); ++i) {
+        if (status[i]) 
+        {  // Se il punto è stato tracciato correttamente
+            dynamic_current[counter] = dynamic_points_prev[i];
+            counter ++;
+        }
+    }
+
+    //Dynamic current contiene i punti che sono stati correttamente tracciati e che erano dinamici nel frame precedente
+
+    
 
     //Features statiche o dinamiche 
     for (size_t i = 0; i < good_old.size(); ++i) 
     {
         double movement = cv::norm(good_new[i]-good_old[i]);
         if(movement >= movement_threshold_) //the feature is dynamic
-            dynamic[i] = true; 
-        else //the feature is static
-            dynamic[i] = false;
+            dynamic_current[i] = true; //aggiungo eventuali altri punti considerati dinamici, ma quelli dinamici non possono tornare statici
+        //else //the feature is static
+            //dynamic[i] = false;
     }
  
     drawDelaunay(current, good_new, cv::Scalar(255, 0, 0)); //disegno i triangoli di Delaunay 
@@ -135,8 +149,15 @@ void OpticalFlowPose::computeOpticalFlow(const cv::Mat &prev, const cv::Mat &cur
 
 
     // You can use these for pose recovery
-    recoverPose(good_old, good_new,dynamic);
+    recoverPose(good_old, good_new,dynamic_current);
     points_prev_ = good_new;
+
+    if (dynamic_points_prev.size() != dynamic_current.size()) 
+    {
+        dynamic_points_prev.resize(dynamic_current.size(), false);  // Inizializza con valore false (statico)
+    }
+    dynamic_points_prev = dynamic_current;
+
 }
 
 void OpticalFlowPose::recoverPose(const std::vector<cv::Point2f> &good_old, const std::vector<cv::Point2f> &good_new,const std::vector<bool>& dynamic)
