@@ -3,6 +3,6 @@
 
     <node pkg="heart_beat_proj" name="video_to_ros" type="video_to_ros.py" output="screen">
         <param name="original_video"
-            value="/home/corbe/heart_beat_ws/src/heart_beat_proj/videos/video2.1.mp4" />
+            value="/home/corbe/heart_beat_ws/src/heart_beat_proj/videos/video.mp4" />
     </node>
 </launch>

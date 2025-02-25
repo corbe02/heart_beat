@@ -76,7 +76,8 @@ if __name__ == '__main__':
         # ]
         
 
-        original_video = rospy.get_param('~original_video','video2.1.mp4')
+        original_video = rospy.get_param('~original_video','video.mp4')
+        #original_video = rospy.get_param('~original_video','original_img.mp4')
         video_path = original_video
         topic = '/video1/image_raw'
         info_topic = '/video1/camera_info'
