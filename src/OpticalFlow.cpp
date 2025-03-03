@@ -94,9 +94,6 @@ void OpticalFlow::computeOpticalFlow(const cv::Mat &prev, cv::Mat &current, doub
     Visualizer::drawDelaunay(current, good_new, cv::Scalar(255, 0, 0)); //disegno i triangoli di Delaunay 
     Visualizer::drawVoronoi(current, good_new, cv::Scalar(0, 255, 0)); // disegno il diagramma di Voronoi
 
-
-
-    // You can use these for pose recovery
     OpticalFlowPose::recoverPose(good_old, good_new,dynamic_current, current);
     points_prev_ = good_new;
 
@@ -105,5 +102,67 @@ void OpticalFlow::computeOpticalFlow(const cv::Mat &prev, cv::Mat &current, doub
         dynamic_points_prev.resize(dynamic_current.size(), false);  // Inizializza con valore false (statico)
     }
     dynamic_points_prev = dynamic_current;
+
+}
+
+std::vector<uchar> OpticalFlow::OpticalFlowTriangulation(const cv::Mat &prev, cv::Mat &current, double &movement_threshold_,
+                                          std::vector<bool> &dynamic_points_prev, std::vector<cv::Point2f> &points_prev,cv::Mat left_img_RGB)
+{
+
+
+    //optical flow on one of the two images (ex left)
+
+    std::vector<cv::Point2f> points_current; //vettore dinamico che conterrà un numero variabile di punti 2D (cv::Point2f)
+
+    std::vector<uchar> status; //vettore che contiene valori di tipo unsigned char (numeri interi senza segno, che varia da 0 a 255)
+    std::vector<float> err;
+    cv::calcOpticalFlowPyrLK(prev, current, points_prev, points_current,status,err);
+
+    //points_current contiene le nuove posizioni delle features
+
+    std::vector<cv::Point2f> good_old; //conterrà i punti del frame precedente che sono stati correttamente mappati in quello corrente 
+    std::vector<cv::Point2f> good_new; //punti mappati nel frame corrente 
+
+    for (size_t i = 0; i < status.size(); ++i) {
+        if (status[i]) 
+        {  // Se il punto è stato tracciato correttamente
+            good_old.push_back(points_prev[i]);  //punti precedenti mappati nel frame corrente 
+            good_new.push_back(points_current[i]); //punti mappati nel frame corrente
+        }
+    }
+
+
+    std::vector<bool> dynamic_current(good_new.size(), false); // 1 se dinamico, 0 se statico
+    int counter = 0;
+    for (size_t i = 0; i < status.size(); ++i) {
+        if (status[i]) 
+        {  // Se il punto è stato tracciato correttamente
+            dynamic_current[counter] = dynamic_points_prev[i];
+            counter ++;
+        }
+    }
+
+    //Features statiche o dinamiche 
+    for (size_t i = 0; i < good_old.size(); ++i) 
+    {
+        double movement = cv::norm(good_new[i]-good_old[i]);
+        if(movement >= movement_threshold_) //the feature is dynamic
+            dynamic_current[i] = true; //aggiungo eventuali altri punti considerati dinamici, ma quelli dinamici non possono tornare statici
+        //else //the feature is static
+            //dynamic[i] = false;
+    }
+
+    //OpticalFlowPose::recoverPose(good_old, good_new,dynamic_current, left_img_RGB);
+    points_prev = good_new;
+
+    if (dynamic_points_prev.size() != dynamic_current.size()) 
+    {
+        dynamic_points_prev.resize(dynamic_current.size(), false);  // Inizializza con valore false (statico)
+    }
+    dynamic_points_prev = dynamic_current;
+
+    return status;
+
+
 
 }

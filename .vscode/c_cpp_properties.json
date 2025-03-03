@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/home/corbe/heart_beat_ws/src/heart_beat_proj/include/camera_pose_estimation.h"
+                "/home/corbe/heart_beat_ws/src/heart_beat_proj/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

@@ -3,11 +3,16 @@
 image_transport::Publisher OpticalFlowPose::image_pub_;
 
 OpticalFlowPose::OpticalFlowPose(ros::NodeHandle &nh) 
-    : it_(nh), private_nh_(nh), first_time_(true), feature_extractor_(),visualizer_(),optical_flow_(),triangulation_() {
+    : it_(nh), private_nh_(nh), first_time_(true), feature_extractor_(), visualizer_(), optical_flow_(), triangulation_() {
     
     private_nh_.param("threshold", movement_threshold_, 0.0);
+
+    // Initialize the image subscriber
     image_sub_ = nh.subscribe("/video1/image_raw", 1, &OpticalFlowPose::imageCallback, this);
-    image_pub_ = it_.advertise("/optical_flow/output_video", 1);
+
+    // Initialize the image publisher
+    image_pub_ = it_.advertise("/optical_flow/output_video", 1);  
+
 }
 
 void OpticalFlowPose::imageCallback(const sensor_msgs::ImageConstPtr &msg) {
@@ -18,7 +23,7 @@ void OpticalFlowPose::imageCallback(const sensor_msgs::ImageConstPtr &msg) {
         cv::Mat current_copy = current_img_.clone();
 
         if (!prev_img_.empty()) {
-            feature_extractor_.featureDetection(current_img_,image_pub_);
+            feature_extractor_.featureDetection(prev_img_,current_img_,movement_threshold_,image_pub_);
         }
         prev_img_ = current_copy.clone();  // Keep the original image for tracking
     } catch (cv_bridge::Exception &e) {
@@ -27,6 +32,7 @@ void OpticalFlowPose::imageCallback(const sensor_msgs::ImageConstPtr &msg) {
 }
 
 void OpticalFlowPose::PublishRenderedImage(image_transport::Publisher pub, cv::Mat image, std::string encoding, std::string frame_id) {
+    //ROS_INFO("Publishing image...");
     std_msgs::Header header;
     header.stamp = ros::Time::now();
     header.frame_id = frame_id;
@@ -38,14 +44,14 @@ void OpticalFlowPose::recoverPose(const std::vector<cv::Point2f> &good_old, cons
 {
 
     // Example intrinsic matrix, update with your camera parameters
-    cv::Mat K = (cv::Mat_<float>(3, 3) << 745.0165, 0.0, 667.0261, 0.0, 745.6793, 366.4256, 0.0, 0.0, 1.0);
+    //cv::Mat K = (cv::Mat_<float>(3, 3) << 745.0165, 0.0, 667.0261, 0.0, 745.6793, 366.4256, 0.0, 0.0, 1.0);
 
     // Assuming we have some camera motion model here
-    cv::Mat R, t;
+    //cv::Mat R, t;
     // Calculate essential matrix and recover pose
     // You might need to filter points or ensure they're in the same frame
-    cv::Mat E = cv::findEssentialMat(good_old, good_new, K, cv::RANSAC);
-    cv::recoverPose(E, good_old, good_new, K, R, t);
+    //cv::Mat E = cv::findEssentialMat(good_old, good_new, K, cv::RANSAC);
+    //cv::recoverPose(E, good_old, good_new, K, R, t);
 
     
     /*
@@ -65,7 +71,13 @@ void OpticalFlowPose::recoverPose(const std::vector<cv::Point2f> &good_old, cons
     }
 
 
-
+    if (current.channels() == 3 && current.depth() == CV_8U) {
+        //ROS_INFO("Image is in the correct format: CV_8UC3");
+    } else {
+        //ROS_ERROR("Image format is incorrect. Converting...");
+        cv::cvtColor(current, current, cv::COLOR_BGR2RGB);
+    }
+    //ROS_INFO_STREAM("Entered recover function: " << good_new.size());
     PublishRenderedImage(image_pub_, current, "bgr8", "endoscope");
 
     //ROS_INFO("Rotation Matrix:\n %s", R);
