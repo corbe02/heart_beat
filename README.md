@@ -1,12 +1,37 @@
 # Surgical Video Feature Analysis
 
-This project processes a surgical video to extract features, analyze their motion using optical flow, classify them as static or dynamic, and visualize them using Voronoi diagrams and Delaunay triangulations.
+This project processes a surgical video to extract features, analyze their motion using optical flow, classify them as static or dynamic, and triangulate them
 
-## Features
-- **Feature Detection**: Identifies key points in the surgical video.
-- **Optical Flow Analysis**: Tracks motion of the features over time.
-- **Feature Classification**: Labels features as static or dynamic.
-- **Visualization**: Constructs Voronoi diagrams and Delaunay triangulations for feature visualization.
+## Workflow
+
+### 1. Video Frame Processing
+- The video is processed one frame at a time using the `OpticalFlowPose` class.
+- Each frame undergoes preprocessing and feature extraction to prepare for motion tracking.
+
+### 2. Feature Extraction (`Feature_extractor` class)
+- **Preprocessing**: 
+  - The left and right images are separated, and adaptive histogram equalization is applied to improve contrast.
+- **Feature Detection**: 
+  - The **Good Features to Track (GFTT)** method is used to detect key points in both images.
+- **Feature Description**: 
+  - **ORB (Oriented FAST and Rotated BRIEF)** is used to generate feature descriptors for each detected keypoint.
+- **Feature Matching**: 
+  - The `Feature_extractor` uses the **Good Match** function in the `Triangulation` class to filter matches based on their distance
+  
+### 3. Triangulation (`Triangulation` class)
+- **Projection Matrix Calculation**: 
+  - After matching features, the `Triangulation` class computes the projection matrix to align the left and right views.
+- **Triangulation**:
+  - The triangulation process is carried out, which helps compute the 3D positions of features across frames.
+
+### 4. Optical Flow (`OpticalFlow` class)
+- **Lucas-Kanade Optical Flow**:
+  - The `OpticalFlow` class tracks the motion of the features across consecutive frames using the Lucas-Kanade method.
+- **Point Selection**:
+  - The points that are correctly tracked in both the left and right images are selected for further analysis.
+
+### 5. Final Image Publishing (`OpticalFlowPose` class)
+- After successfully tracking and processing the features, the `OpticalFlowPose` class publishes the final image with the tracked features over a ROS topic.
 
 ## How to Run
 1. Start the ROS core:
@@ -26,6 +51,8 @@ This project processes a surgical video to extract features, analyze their motio
    roslaunch heart_beat_proj load_video.launch
    ```
 
+
+Original flow (calling OpticalFlow::computeOpticalFlow in the OpticalFlowPose callback) was this:
 ## Workflow
 1. The video is loaded and processed frame by frame.
 2. Features are extracted and tracked using optical flow.
