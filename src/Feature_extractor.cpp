@@ -1,10 +1,10 @@
 #include "Feature_extractor.h"
 #include "Triangulation.h"
-#include "camera_pose_estimation.h"
+#include "OpticalFlowPose.h"
 #include "OpticalFlow.h"
 
 
-FeatureExtractor::FeatureExtractor():first_time_(true) {
+FeatureExtractor::FeatureExtractor(double thre):first_time_(true), thres_(thre) {
 }
 
 cv::Mat FeatureExtractor::adaptiveHistogramEqualization(const cv::Mat &img) {
@@ -37,7 +37,7 @@ cv::Mat FeatureExtractor::adaptiveHistogramEqualization(const cv::Mat &img) {
 
 }
 
-void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &current,double &movement_threshold_,image_transport::Publisher image_pub_) {
+void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &current,image_transport::Publisher image_pub_) {
 // Camera Matrix for Left Camera
     cv::Mat cameraMatrixLeft = (cv::Mat_<double>(3,3) << 
         1039.6275634765625, 0, 596.5435180664062,
@@ -166,10 +166,8 @@ void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &curr
     }
 
     // First, you run the optical flow triangulation for both left and right images.
-    std::vector<uchar> status_left = OpticalFlow::OpticalFlowTriangulation(left_img_prev, left_img, movement_threshold_, dynamic_points_prev_left_, points_prev_left_, left_img_RGB);
-    std::vector<uchar> status_right = OpticalFlow::OpticalFlowTriangulation(right_img_prev, right_img, movement_threshold_, dynamic_points_prev_right_, points_prev_right_, right_img_RGB);
-
-
+    std::vector<uchar> status_left = OpticalFlow::OpticalFlowTriangulation(left_img_prev, left_img, thres_, dynamic_points_prev_left_, points_prev_left_, left_img_RGB);
+    std::vector<uchar> status_right = OpticalFlow::OpticalFlowTriangulation(right_img_prev, right_img,thres_, dynamic_points_prev_right_, points_prev_right_, right_img_RGB);
 
     // Create vectors to hold the good points that are tracked in both left and right images.
     std::vector<cv::Point2f> of_left;
@@ -191,28 +189,27 @@ void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &curr
     points_prev_left_ = of_left;
     points_prev_right_ = of_right;
 
+    // Draw red dots for tracked features on the left image.
+    for (size_t i = 0; i < of_left.size(); i++) {
+        cv::Point2f left_point = of_left[i];
+        // Draw a red dot on the left image.
+        cv::circle(left_img_RGB, left_point, 5, cv::Scalar(0, 0, 255), -1);  // Red color
+    }
+
+    // Draw red dots for tracked features on the right image.
+    for (size_t i = 0; i < of_right.size(); i++) {
+        cv::Point2f right_point = of_right[i];
+        // Draw a red dot on the right image.
+        cv::circle(right_img_RGB, right_point, 5, cv::Scalar(0, 0, 255), -1);  // Red color
+    }
+
     // Create a combined image with the left and right images stacked vertically.
     cv::Mat img_combined;
     cv::vconcat(left_img_RGB, right_img_RGB, img_combined);
-
-    // Draw red dots for tracked features on the left image portion (top part of img_combined).
-    for (size_t i = 0; i < of_left.size(); i++) {
-        cv::Point2f left_point = of_left[i];
-        // Draw a red dot on the top portion (left image part) of the combined image.
-        cv::circle(img_combined, left_point, 5, cv::Scalar(0, 0, 255), -1);  // Red color
-    }
-
-    // Adjust the points for the right image portion (bottom part of img_combined).
-    for (size_t i = 0; i < of_right.size(); i++) {
-        cv::Point2f right_point = of_right[i];
-        // Draw a red dot on the bottom portion (right image part) of the combined image.
-        cv::circle(img_combined, cv::Point2f(right_point.x, right_point.y + left_img_RGB.rows), 5, cv::Scalar(0, 0, 255), -1);  // Red color
-    }
-
     // Finally, you can publish the image with the visualized points.
     OpticalFlowPose::PublishRenderedImage(image_pub_, img_combined, "bgr8", "endoscope");
 
-    if(of_left.size()<150){
+    if(of_left.size()<50){
         first_time_ = true;
     }
 

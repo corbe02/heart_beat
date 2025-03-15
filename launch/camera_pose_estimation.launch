@@ -1,6 +1,0 @@
-<launch>
-    <node pkg="heart_beat_proj" name="camera_pose_estimation" type="camera_pose_estimation" output="screen">
-        <param name="threshold" value="10" />
-    </node>
-</launch>
-

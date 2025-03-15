@@ -42,7 +42,7 @@ set(LIBRARIES
 )
 
 # Aggiungi l'eseguibile
-add_executable(camera_pose_estimation src/main.cpp src/camera_pose_estimation.cpp src/OpticalFlow.cpp src/Triangulation.cpp src/Visualizer.cpp src/Feature_extractor.cpp)
+add_executable(opticalflowpose src/main.cpp src/OpticalFlowPose.cpp src/OpticalFlow.cpp src/Triangulation.cpp src/Visualizer.cpp src/Feature_extractor.cpp)
 
 # Collega le librerie necessarie all'eseguibile
-target_link_libraries(camera_pose_estimation ${LIBRARIES})
+target_link_libraries(opticalflowpose ${LIBRARIES})

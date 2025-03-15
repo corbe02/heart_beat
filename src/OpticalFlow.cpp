@@ -1,6 +1,6 @@
 #include "OpticalFlow.h"
 #include "Visualizer.h"
-#include "camera_pose_estimation.h"
+#include "OpticalFlowPose.h"
 #include <image_transport/image_transport.h>
 
 OpticalFlow::OpticalFlow() {}

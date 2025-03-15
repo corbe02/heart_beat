@@ -36,7 +36,7 @@ std::vector<cv::DMatch> Triangulation::good_match(cv::Mat &left_des, cv::Mat &ri
     // Filter matches 
     std::vector<cv::DMatch> good_matches;
     for (int i = 0; i < matches.size(); i++) {
-        if (matches[i].distance <= 50 && matches[i].distance >= -50) { 
+        if (matches[i].distance <= 30 && matches[i].distance >= -30) { 
             good_matches.push_back(matches[i]);
         }
     }

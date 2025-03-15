@@ -1,9 +1,9 @@
-#include "camera_pose_estimation.h"
+#include "OpticalFlowPose.h"
 
 image_transport::Publisher OpticalFlowPose::image_pub_;
 
 OpticalFlowPose::OpticalFlowPose(ros::NodeHandle &nh) 
-    : it_(nh), private_nh_(nh), first_time_(true), feature_extractor_(), visualizer_(), optical_flow_(), triangulation_() {
+    : it_(nh), private_nh_(nh), first_time_(true), feature_extractor_(movement_threshold_), visualizer_(), optical_flow_(), triangulation_() {
     
     private_nh_.param("threshold", movement_threshold_, 0.0);
 
@@ -23,7 +23,7 @@ void OpticalFlowPose::imageCallback(const sensor_msgs::ImageConstPtr &msg) {
         cv::Mat current_copy = current_img_.clone();
 
         if (!prev_img_.empty()) {
-            feature_extractor_.featureDetection(prev_img_,current_img_,movement_threshold_,image_pub_);
+            feature_extractor_.featureDetection(prev_img_,current_img_,image_pub_);
         }
         prev_img_ = current_copy.clone();  // Keep the original image for tracking
     } catch (cv_bridge::Exception &e) {
