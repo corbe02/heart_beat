@@ -1,12 +1,6 @@
 # Surgical Video Feature Analysis
 
-This project processes a surgical video to extract features, analyze their motion using optical flow, classify them as static or dynamic, and visualize them using Voronoi diagrams and Delaunay triangulations.
-
-## Features
-- **Feature Detection**: Detects and tracks key points in the surgical video.
-- **Optical Flow Analysis**: Tracks the motion of features using Lucas-Kanade optical flow.
-- **Feature Classification**: Classifies features as static or dynamic.
-- **Visualization**: Generates Voronoi diagrams and Delaunay triangulations to visualize feature relationships and motion.
+This project processes a surgical video to extract features, analyze their motion using optical flow, classify them as static or dynamic, and triangulate them
 
 ## Workflow
 
@@ -22,7 +16,7 @@ This project processes a surgical video to extract features, analyze their motio
 - **Feature Description**: 
   - **ORB (Oriented FAST and Rotated BRIEF)** is used to generate feature descriptors for each detected keypoint.
 - **Feature Matching**: 
-  - The `Feature_extractor` uses the **Good Match** function in the `Triangulation` class to check for good matches between the left and right images.
+  - The `Feature_extractor` uses the **Good Match** function in the `Triangulation` class to filter matches based on their distance
   
 ### 3. Triangulation (`Triangulation` class)
 - **Projection Matrix Calculation**: 
