@@ -5,45 +5,57 @@ Triangulation::Triangulation() {}
 
 std::vector<cv::DMatch> Triangulation::good_match(cv::Mat &left_des, cv::Mat &right_des)
 {
+    /*
     //Brute Force per fare il matching 
     cv::BFMatcher matcher(cv::NORM_HAMMING, true);
     std::vector<cv::DMatch> matches;
     matcher.match(left_des, right_des, matches);
 
-    /*
-    cv::Mat match_img;
-    cv::drawMatches(left_img, query_kpt, right_img, cand_kpt, matches, match_img);
-    cv::imshow("Feature Matches", match_img);
-    cv::waitKey(0);
-    */
-
-    //EXTRACT GOOD MATCHES
-    // Calculate the min and max distances between keypoints
-    /*
-    double max_dist = 0;
-    double min_dist = 100;
-
-    for (int i = 0; i < left_des.rows; i++) {
-        double dist = matches[i].distance;
-        if (dist < min_dist) min_dist = dist;
-        if (dist > max_dist) max_dist = dist;
-    }
-
-    printf("Max distance: %f\n", max_dist);
-    printf("Min distance: %f\n", min_dist);
-
-    */
     // Filter matches 
     std::vector<cv::DMatch> good_matches;
     for (int i = 0; i < matches.size(); i++) {
-        if (matches[i].distance <= 30 && matches[i].distance >= -30) { 
+        if (matches[i].distance <= 35 && matches[i].distance >= -35) { 
             good_matches.push_back(matches[i]);
         }
     }
 
     ROS_INFO_STREAM("Good matches: " << good_matches.size());
+    */
 
-    return good_matches;
+    cv::BFMatcher matcher(cv::NORM_HAMMING);
+    std::vector<std::vector<cv::DMatch>> knn_matches;
+    matcher.knnMatch(left_des, right_des, knn_matches, 2);
+
+    // Apply Lowe's ratio test
+    std::vector<cv::DMatch> good_matches;
+    float ratio_thresh = 0.65f;
+    for (size_t i = 0; i < knn_matches.size(); i++) {
+        if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance) {
+            good_matches.push_back(knn_matches[i][0]);
+        }
+    }
+
+    
+    // Find the minimum distance among good matches
+    double min_dist = std::numeric_limits<double>::max();
+    for (const auto &match : good_matches) {
+        if (match.distance < min_dist) {
+            min_dist = match.distance;
+        }
+    }
+
+    // Apply stricter filtering: Keep matches with distance < 2 * min_dist
+    std::vector<cv::DMatch> best_matches;
+    double threshold = 6.0 * min_dist;
+    for (const auto &match : good_matches) {
+        if (match.distance < threshold) {
+            best_matches.push_back(match);
+        }
+    }
+    ROS_INFO_STREAM("good_matches: " << good_matches.size());
+    ROS_INFO_STREAM("best_matches: " << best_matches.size());
+    
+    return best_matches;
 
 }
 
@@ -65,10 +77,11 @@ std::vector<cv::Vec3d> Triangulation::triangulate(cv::Mat &projMatLeft, cv::Mat 
         triangulatedPoints3D.push_back(euclideanPoint);
     }
 
-    // Stampa i punti 3D ottenuti
+    /*Stampa i punti 3D ottenuti
     for (const auto& point : triangulatedPoints3D) {
         std::cout << "Punto 3D: " << point << std::endl;
     }
+    */ 
 
     return triangulatedPoints3D;
 

@@ -104,25 +104,27 @@ void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &curr
     if(first_time_)
     {    
         // Feature detection with GFTT
-        cv::Ptr<cv::GFTTDetector> gftt = cv::GFTTDetector::create(1000, 0.001, 10, 3, false, 0.04);
+        cv::Ptr<cv::GFTTDetector> gftt = cv::GFTTDetector::create(2500, 0.001, 10, 3, false, 0.04);
         std::vector<cv::KeyPoint> left_kpt, right_kpt;
         gftt->detect(left_img, left_kpt);
         gftt->detect(right_img, right_kpt);
 
-        ROS_INFO_STREAM("Descriptors in bottom: " << right_kpt.size());
-        ROS_INFO_STREAM("Descriptors in top: " << left_kpt.size());
+        ROS_INFO_STREAM("Features in bottom: " << right_kpt.size());
+        ROS_INFO_STREAM("Features in top: " << left_kpt.size());
 
         //GFTT non restituisce i descrittori quindi usiamo orb per trovare i descrittori
-        cv::Ptr<cv::ORB> orb = cv::ORB::create();
+        cv::Ptr<cv::ORB> orb = cv::ORB::create(2500);
         cv::Mat left_des, right_des;
         orb->compute(left_img, left_kpt, left_des);
         orb->compute(right_img, right_kpt, right_des);
 
-        ROS_INFO_STREAM("Features in bottom: " << right_des.size());
-        ROS_INFO_STREAM("Features in top: " << left_des.size());
+        ROS_INFO_STREAM("Descriptors in bottom: " << right_des.size());
+        ROS_INFO_STREAM("Descriptors in top: " << left_des.size());
 
         std::vector<cv::DMatch> good_matches;
+        //ROS_INFO_STREAM("Pre good match: " << right_des.size());
         good_matches = Triangulation::good_match(left_des, right_des);
+        //ROS_INFO_STREAM("Post good match: " << good_matches.size());
 
         std::vector<cv::Point2f> good_matches_img1_coords;
         std::vector<cv::Point2f> good_matches_img2_coords;
@@ -189,18 +191,18 @@ void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &curr
     points_prev_left_ = of_left;
     points_prev_right_ = of_right;
 
-    // Draw red dots for tracked features on the left image.
+    // Draw  dots for tracked features on the left image.
     for (size_t i = 0; i < of_left.size(); i++) {
         cv::Point2f left_point = of_left[i];
         // Draw a red dot on the left image.
-        cv::circle(left_img_RGB, left_point, 5, cv::Scalar(0, 0, 255), -1);  // Red color
+        cv::circle(left_img_RGB, left_point, 5, cv::Scalar(0, 255, 0), -1);  // 
     }
 
     // Draw red dots for tracked features on the right image.
     for (size_t i = 0; i < of_right.size(); i++) {
         cv::Point2f right_point = of_right[i];
         // Draw a red dot on the right image.
-        cv::circle(right_img_RGB, right_point, 5, cv::Scalar(0, 0, 255), -1);  // Red color
+        cv::circle(right_img_RGB, right_point, 5, cv::Scalar(0, 255, 0), -1);  
     }
 
     // Create a combined image with the left and right images stacked vertically.
@@ -209,7 +211,7 @@ void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &curr
     // Finally, you can publish the image with the visualized points.
     OpticalFlowPose::PublishRenderedImage(image_pub_, img_combined, "bgr8", "endoscope");
 
-    if(of_left.size()<50){
+    if(of_left.size()<70){
         first_time_ = true;
     }
 
