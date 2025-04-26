@@ -116,11 +116,14 @@ void OpticalFlow::OpticalFlowTriangulation(const cv::Mat &prev_l, cv::Mat &curre
     // Keep mapping between optical flow index and tracked_matches index
     std::vector<size_t> opticalFlowToMatchIdx;
 
+    //Per fare l'optical flow, devo utilizzare solo le features attive (che ho tracciato nel frame precedente)
+    //Estraggo quindi le features attive e le metto in prevPointsLeft e prevPointsRight
+    //in opticalFlowToMatchIdx metto gli indici delle features attive (ex: 2,7,13...)
     for (size_t i = 0; i < tracked_matches.size(); ++i) {
         if (tracked_matches[i].is_active) {
             // Retrieve left and right 2D points from your TrackedMatch structure
-            cv::Point2f pt_left = tracked_matches[i].pt_left;   // <-- Replace with your actual access
-            cv::Point2f pt_right = tracked_matches[i].pt_right; // <-- Replace with your actual access
+            cv::Point2f pt_left = tracked_matches[i].pt_left;   
+            cv::Point2f pt_right = tracked_matches[i].pt_right; 
 
             prevPointsLeft.push_back(pt_left);
             prevPointsRight.push_back(pt_right);
@@ -131,6 +134,7 @@ void OpticalFlow::OpticalFlowTriangulation(const cv::Mat &prev_l, cv::Mat &curre
     if (prevPointsLeft.empty() || prevPointsRight.empty())
         return; // No active points to track
 
+    // -------------------------------------------- OPTICAL FLOW ----------------------------------------
     // 2. Perform optical flow on active points only
     std::vector<cv::Point2f> nextPointsLeft, nextPointsRight;
     std::vector<uchar> statusLeft, statusRight;
@@ -140,6 +144,9 @@ void OpticalFlow::OpticalFlowTriangulation(const cv::Mat &prev_l, cv::Mat &curre
     cv::calcOpticalFlowPyrLK(prev_r, current_r, prevPointsRight, nextPointsRight, statusRight, errRight);
 
     // 3. Iterate through statuses and map back to tracked_matches
+    // Itero su tutte le features che prima dell'optical flow erano attive (correttamente tracciate nel frame precedente)
+    // Se statusleft o status right sono false, metto is_active a false ---> feature non tracciata 
+    // Per trovare la posizione di quella feature nel vettore generale, utilizzo l'indice che ho salvato in opticalFlowToMatchIdx
     for (size_t flow_idx = 0; flow_idx < opticalFlowToMatchIdx.size(); ++flow_idx) {
         size_t match_idx = opticalFlowToMatchIdx[flow_idx];
 
@@ -161,17 +168,16 @@ void OpticalFlow::OpticalFlowTriangulation(const cv::Mat &prev_l, cv::Mat &curre
         float movementRight = std::sqrt(dx_right * dx_right + dy_right * dy_right);
 
         if (movementLeft < movement_threshold_ || movementRight < movement_threshold_) {
-            tracked_matches[match_idx].is_active = false;
+            tracked_matches[match_idx].dynamic_point= false;
         } else {
             // Update with new positions
             tracked_matches[match_idx].pt_left = nextPointsLeft[flow_idx];
             tracked_matches[match_idx].pt_right = nextPointsRight[flow_idx];
 
-            // Mark as active (you missed this!)
-            tracked_matches[match_idx].is_active = true;
+            tracked_matches[match_idx].dynamic_point = true;
 
-            // Optional: re-triangulate if needed
-            // tracked_matches[match_idx].position_3d = TriangulatePoint(...);
+            //re-triangulate if needed
+            //tracked_matches[match_idx].position_3d = TriangulatePoint(...);
         }
     }
 }

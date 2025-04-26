@@ -83,13 +83,6 @@ std::vector<cv::Vec3d> Triangulation::triangulate(cv::Mat &projMatLeft, cv::Mat 
 
         triangulatedPoints3D.push_back(euclideanPoint);
     }
-
-    /*Stampa i punti 3D ottenuti
-    for (const auto& point : triangulatedPoints3D) {
-        std::cout << "Punto 3D: " << point << std::endl;
-    }
-    */ 
-
     return triangulatedPoints3D;
 
 
