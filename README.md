@@ -48,7 +48,7 @@ This project processes a surgical video to extract features, analyze their motio
    ```
 4. Launch the video processing node:
    ```bash
-   roslaunch heart_beat_proj load_video.launch
+   roslaunch heart_beat_proj opticalflowpose.launch
    ```
 
 
