@@ -11,6 +11,8 @@
 #include "Visualizer.h"
 #include "Triangulation.h"
 #include "OpticalFlow.h"
+#include "Wavelets.h"
+#include "TrackedMatch.h"
 
 
 class OpticalFlowPose {
@@ -27,6 +29,7 @@ private:
     Visualizer visualizer_;
     OpticalFlow optical_flow_;
     Triangulation triangulation_;
+    Wavelets wavelet_;
 
     ros::Subscriber image_sub_;
     ros::NodeHandle private_nh_;

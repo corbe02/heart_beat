@@ -2,6 +2,10 @@
 #include "Triangulation.h"
 #include "OpticalFlowPose.h"
 #include "OpticalFlow.h"
+#include "Wavelets.h"
+#include "data.h"
+#include "TrackedMatch.h"
+
 
 
 FeatureExtractor::FeatureExtractor(double thre):first_time_(true), thres_(thre) {
@@ -37,74 +41,30 @@ cv::Mat FeatureExtractor::adaptiveHistogramEqualization(const cv::Mat &img) {
 
 }
 
-void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &current,image_transport::Publisher image_pub_) {
-// Camera Matrix for Left Camera
-    cv::Mat cameraMatrixLeft = (cv::Mat_<double>(3,3) << 
-        1039.6275634765625, 0, 596.5435180664062,
-        0, 1039.4129638671875, 502.235595703125,
-        0, 0, 1);
+void FeatureExtractor::featureDetection(const cv::Mat &left_prev,const cv::Mat &right_prev, const cv::Mat &left_curr,const cv::Mat &right_curr,image_transport::Publisher image_pub_) {
+    //Aumenta il contrasto e converti in scala di grigi
+    cv::Mat left_img = adaptiveHistogramEqualization(left_curr);
+    cv::Mat right_img = adaptiveHistogramEqualization(right_curr);
 
-    // Camera Matrix for Right Camera
-    const cv::Mat cameraMatrixRight = (cv::Mat_<double>(3,3) << 
-        1040.2305908203125, 0, 693.2049560546875,
-        0, 1040.0146484375, 502.83544921875,
-        0, 0, 1);
-
-    // Distortion Coefficients for Left Camera
-    const cv::Mat distCoeffsLeft = (cv::Mat_<double>(1,5) << 
-        -0.0038167661987245083, 0.01493496261537075, 0.0, 0.0, 0.012531906366348267);
-
-    // Distortion Coefficients for Right Camera
-    const cv::Mat distCoeffsRight = (cv::Mat_<double>(1,5) << 
-        -0.003966889809817076, 0.016439124941825867, 0.0, 0.0, 0.01571226492524147);
-
-    // Rotation Matrix for Right Camera (from Left Camera to Right Camera)
-    const cv::Mat rotationMatrixRight = (cv::Mat_<double>(3,3) << 
-        0.9999994731380644, 1.988273724971613e-05, -0.001026317821383099,
-        -1.9900816839777227e-05, 0.9999999996469973, -1.7605766674560638e-05,
-        0.001026317470969973, 1.762618196173469e-05, 0.9999994731807444);
-
-    // Convert Rotation Matrix to Rotation Vector
-    cv::Mat rotationVectorRight;
-    cv::Rodrigues(rotationMatrixRight, rotationVectorRight);
-
-    // Rotation Vector for Left Camera (Identity, so it's a zero vector)
-    cv::Mat rotationVectorLeft = (cv::Mat_<double>(3,1) << 0, 0, 0);
-
-    // Translation Vector for Left Camera (No translation, so it's a zero vector)
-    cv::Mat translationVectorLeft = (cv::Mat_<double>(3,1) << 0, 0, 0);
-
-    // Translation Vector for Right Camera (relative to the Left Camera)
-    cv::Mat translationVectorRight = (cv::Mat_<double>(3,1) << 
-        -4.3841071128845215, -0.027004247531294823, 0.028849583119153976);
-
-    // Get image size
-    int height = current.rows;
-    int width = current.cols;
-
-    // Define ROIs
-    cv::Rect topROI(0, 0, width, height / 2);
-    cv::Rect bottomROI(0, height / 2, width, height / 2);
-
-    // Extract regions
-    cv::Mat left_img_RGB = current(topROI);
-    cv::Mat right_img_RGB  = current(bottomROI);
-
-    cv::Mat left_img_RGB_prev = prev(topROI);
-    cv::Mat right_img_RGB_prev  = prev(bottomROI);
-
-    //Increase contrast + grayscale 
-    cv::Mat left_img = adaptiveHistogramEqualization(left_img_RGB);
-    cv::Mat right_img = adaptiveHistogramEqualization(right_img_RGB);
-
-    cv::Mat left_img_prev = adaptiveHistogramEqualization(left_img_RGB_prev);
-    cv::Mat right_img_prev = adaptiveHistogramEqualization(right_img_RGB_prev);
+    cv::Mat left_img_prev = adaptiveHistogramEqualization(left_prev);
+    cv::Mat right_img_prev = adaptiveHistogramEqualization(right_prev);
 
 
     if(first_time_)
     {    
+
+        //-----------------------FEATURE DETECTION AND FILTERING---------------------------------------------------------------------
+        //Svuoto tracked matches 
+        tracked_matches.clear();
         // Feature detection with GFTT
-        cv::Ptr<cv::GFTTDetector> gftt = cv::GFTTDetector::create(2500, 0.001, 10, 3, false, 0.04);
+        // Crea un rilevatore di feature GFTT (Good Features To Track) con:
+        // - massimo numero punti da rilevare
+        // - qualità minima richiesta dei punti 
+        // - distanza minima tra i punti = 10 pixel
+        // - finestra di analisi 3x3 pixel
+        // - usare Harris detector --> true
+        // - parametro k (Harris) settato a 0.04 (non usato qui)
+        cv::Ptr<cv::GFTTDetector> gftt = cv::GFTTDetector::create(2500, 0.001, 10, 3, true, 0.04); 
         std::vector<cv::KeyPoint> left_kpt, right_kpt;
         gftt->detect(left_img, left_kpt);
         gftt->detect(right_img, right_kpt);
@@ -121,101 +81,93 @@ void FeatureExtractor::featureDetection(const cv::Mat &prev, const cv::Mat &curr
         ROS_INFO_STREAM("Descriptors in bottom: " << right_des.size());
         ROS_INFO_STREAM("Descriptors in top: " << left_des.size());
 
-        std::vector<cv::DMatch> good_matches;
-        //ROS_INFO_STREAM("Pre good match: " << right_des.size());
-        good_matches = Triangulation::good_match(left_des, right_des);
-        //ROS_INFO_STREAM("Post good match: " << good_matches.size());
+        tracked_matches = Triangulation::good_match(left_des, right_des); //vettore di struct 
 
         std::vector<cv::Point2f> good_matches_img1_coords;
         std::vector<cv::Point2f> good_matches_img2_coords;
 
-        for (size_t i = 0; i < good_matches.size(); i++) {
+    // ---------------------------- POINT EXTRACTION --------------------------------------------------
+        for (size_t i = 0; i < tracked_matches.size(); i++) {
             // Get the keypoints corresponding to the good matches
-
-            cv::Point2f pt1 = left_kpt[good_matches[i].queryIdx].pt;  // Query image
-            cv::Point2f pt2 = right_kpt[good_matches[i].trainIdx].pt;  // Train image
+            cv::Point2f pt1 = left_kpt[tracked_matches[i].match.queryIdx].pt;  // Query image 
+            cv::Point2f pt2 = right_kpt[tracked_matches[i].match.trainIdx].pt;  // Train image
+            tracked_matches[i].pt_right = pt2;
+            tracked_matches[i].pt_left = pt1;
             
-            // Store the coordinates
+            // Store the coordinates of the points for the triangulation
             good_matches_img1_coords.push_back(pt1);
             good_matches_img2_coords.push_back(pt2);
-            //printf("Good Match %d: Image1 Keypoint (%.2f, %.2f) <--> Image2 Keypoint (%.2f, %.2f)\n",(int)i, pt1.x, pt1.y, pt2.x, pt2.y);
         }
 
-        // Draw the good matches
-        cv::Mat img_matches;
-        drawMatches(left_img, left_kpt, right_img, right_kpt, good_matches, img_matches);
 
-
-        //OpticalFlowPose::PublishRenderedImage(image_pub_, img_matches, "bgr8", "endoscope");    
-
-        std::vector<cv::Point2f> undistCoords1, undistCoords2;
-        cv::undistortPoints(good_matches_img1_coords, undistCoords1, cameraMatrixLeft, distCoeffsLeft, cv::noArray(), cameraMatrixLeft);
-        cv::undistortPoints(good_matches_img2_coords, undistCoords2, cameraMatrixRight, distCoeffsRight, cv::noArray(), cameraMatrixRight);
-
+    // ------------------------------- TRIANGULATION -----------------------------------------------
+        //Computation of projection matrix
         cv::Mat projMatLeft, projMatRight;
         projMatLeft = Triangulation::computeProjMat(cameraMatrixLeft, rotationVectorLeft, translationVectorLeft);
         projMatRight = Triangulation::computeProjMat(cameraMatrixRight, rotationVectorRight, translationVectorRight);
 
-        std::vector<cv::Vec3d> triangulatedPoints3D;
-
-        triangulatedPoints3D = Triangulation::triangulate(projMatLeft, projMatRight, undistCoords1,undistCoords2 );
-        points_prev_left_ = undistCoords1; 
-        points_prev_right_  = undistCoords2;
-
-        dynamic_points_prev_left_ = std::vector<bool>(good_matches_img1_coords.size(), false);
-        dynamic_points_prev_right_ = std::vector<bool>(good_matches_img2_coords.size(), false);
+        triangulatedPoints3D = Triangulation::triangulate(projMatLeft, projMatRight, good_matches_img1_coords,good_matches_img2_coords);
+        for (size_t i = 0; i < tracked_matches.size(); ++i) {
+            tracked_matches[i].position_3d = triangulatedPoints3D[i];
+        }
+        ROS_INFO_STREAM(" triangulated point size 1: " << triangulatedPoints3D.size());
+        //points_prev_left_ = good_matches_img1_coords; 
+        //points_prev_right_  = good_matches_img2_coords;
         first_time_ = false;
+
     }
 
-    // First, you run the optical flow triangulation for both left and right images.
-    std::vector<uchar> status_left = OpticalFlow::OpticalFlowTriangulation(left_img_prev, left_img, thres_, dynamic_points_prev_left_, points_prev_left_, left_img_RGB);
-    std::vector<uchar> status_right = OpticalFlow::OpticalFlowTriangulation(right_img_prev, right_img,thres_, dynamic_points_prev_right_, points_prev_right_, right_img_RGB);
+    //----------------------------------------TRIANGULATION-------------------------------------------------------
+    // First, you run the optical flow triangulation for both left and right images --> optical flow of triangulated points
+    OpticalFlow::OpticalFlowTriangulation(left_img_prev, left_img,right_img_prev, right_img, thres_, tracked_matches);
 
-    // Create vectors to hold the good points that are tracked in both left and right images.
     std::vector<cv::Point2f> of_left;
     std::vector<cv::Point2f> of_right;
+    std::vector<cv::Vec3d> tracked3dpts;
 
-    // Now, you need to check that the same points are tracked in both views.
-    for (size_t i = 0; i < status_left.size(); ++i) {
-        if (status_left[i] && status_right[i]) {
-            // If the point is tracked in both views, add it to the list.
-            of_left.push_back(points_prev_left_[i]);  // Use points_prev_left_ for the left image.
-            of_right.push_back(points_prev_right_[i]);  // Use points_prev_right_ for the right image.
-        }
+    for (const auto& match : tracked_matches) {
+        if (!match.is_active) continue; 
+
+        // Separiamo left e right points 
+        of_left.push_back(cv::Point2f(match.pt_left)); 
+        of_right.push_back(cv::Point2f(match.pt_right)); 
+        tracked3dpts.push_back(match.position_3d);
     }
-
-    ROS_INFO_STREAM("Points prev sx: " << points_prev_left_.size());
-    ROS_INFO_STREAM(" points prevdx: " << points_prev_right_.size());
-
-    // Now we update the left and right point lists with the filtered points.
     points_prev_left_ = of_left;
     points_prev_right_ = of_right;
+    triangulatedPoints3D = tracked3dpts;
 
-    // Draw  dots for tracked features on the left image.
+    // std::cout << "Right image feature points:\n";
+    // for (const auto& pt : of_right) {
+    //     std::cout << "  (" << pt.x << ", " << pt.y << ")\n";
+    // }
+
+    tracked3dpts_previous = tracked3dpts;
+
+
+    // Draw points on top half (left image)
     for (size_t i = 0; i < of_left.size(); i++) {
-        cv::Point2f left_point = of_left[i];
-        // Draw a red dot on the left image.
-        cv::circle(left_img_RGB, left_point, 5, cv::Scalar(0, 255, 0), -1);  // 
+        cv::Point2f pt = of_left[i];
+        cv::circle(left_curr, pt, 5, cv::Scalar(0, 255, 0), -1);
     }
 
-    // Draw red dots for tracked features on the right image.
+    // Draw points on bottom half (right image)
     for (size_t i = 0; i < of_right.size(); i++) {
-        cv::Point2f right_point = of_right[i];
-        // Draw a red dot on the right image.
-        cv::circle(right_img_RGB, right_point, 5, cv::Scalar(0, 255, 0), -1);  
+        cv::Point2f pt = of_right[i];
+        // DO NOT subtract roi_offset_y here
+        cv::circle(right_curr, pt, 5, cv::Scalar(0, 255, 0), -1);
     }
 
     // Create a combined image with the left and right images stacked vertically.
     cv::Mat img_combined;
-    cv::vconcat(left_img_RGB, right_img_RGB, img_combined);
+    cv::vconcat(left_curr, right_curr, img_combined);
     // Finally, you can publish the image with the visualized points.
     OpticalFlowPose::PublishRenderedImage(image_pub_, img_combined, "bgr8", "endoscope");
 
     if(of_left.size()<70){
         first_time_ = true;
     }
-
- 
+    
 
 }
 

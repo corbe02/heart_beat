@@ -42,7 +42,7 @@ set(LIBRARIES
 )
 
 # Aggiungi l'eseguibile
-add_executable(opticalflowpose src/main.cpp src/OpticalFlowPose.cpp src/OpticalFlow.cpp src/Triangulation.cpp src/Visualizer.cpp src/Feature_extractor.cpp)
+add_executable(opticalflowpose src/main.cpp src/OpticalFlowPose.cpp src/OpticalFlow.cpp src/Triangulation.cpp src/Visualizer.cpp src/Feature_extractor.cpp src/Wavelets.cpp src/data.cpp)
 
 # Collega le librerie necessarie all'eseguibile
 target_link_libraries(opticalflowpose ${LIBRARIES})
